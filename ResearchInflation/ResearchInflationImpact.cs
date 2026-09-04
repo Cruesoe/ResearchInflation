@@ -8,7 +8,7 @@ namespace ResearchInflation
     public class EraImpact
     {
         public string label;
-        public int remaining;
+        public int techs;
         public float vanilla;
         public float inflated;
     }
@@ -20,45 +20,21 @@ namespace ResearchInflation
 
         public int treeCount;
         public float treeVanilla;
-        public float medianCost;
-        public float averageCost;
-        public ResearchProjectDef typicalProject;
+        public float completeTotal;
+        public int endCounted;
+        public float endMultiplier;
 
         public int finishedCount;
         public int remainingCount;
         public int countedFinished;
         public float multiplier;
 
-        public float remainingVanilla;
-        public float remainingInflated;
-        public float remainingWork;
-
         public ResearchProjectDef currentProject;
         public float currentVanilla;
         public float currentInflated;
         public float currentProgress;
 
-        public ResearchProjectDef priciestRemaining;
-        public float priciestVanilla;
-        public float priciestInflated;
-
-        public float afterNextListed;
-        public float othersListedNow;
-        public bool nextFinishKnown;
-        public string nextFinishName;
-
         public List<EraImpact> eras = new List<EraImpact>();
-        public List<Projection> projections = new List<Projection>();
-
-        public struct Projection
-        {
-            public int finished;
-            public int counted;
-            public int remaining;
-            public float multiplier;
-            public float vanilla;
-            public float inflated;
-        }
 
         public static ResearchInflationImpact Build()
         {
@@ -88,45 +64,22 @@ namespace ResearchInflation
             impact.inColony = Current.ProgramState == ProgramState.Playing && Find.ResearchManager != null;
             impact.treeCount = tree.Count;
 
-            List<float> costs = new List<float>(tree.Count);
             for (int i = 0; i < tree.Count; i++)
             {
                 impact.treeVanilla += tree[i].baseCost;
-                costs.Add(tree[i].baseCost);
             }
 
-            costs.Sort();
-            impact.averageCost = impact.treeVanilla / tree.Count;
-            impact.medianCost = costs[costs.Count / 2];
-            impact.typicalProject = FindTypicalProject(tree, impact.medianCost);
+            Dictionary<string, EraImpact> eraMap = CreateEraMap();
+            WalkTree(tree, 0, null, eraMap, out impact.completeTotal, out impact.endCounted);
+            impact.endMultiplier = ResearchInflationHelper.GetMultiplierForCount(impact.endCounted);
+            impact.eras = EraList(eraMap);
 
             if (impact.inColony)
             {
                 FillColony(impact, tree);
             }
-            else
-            {
-                FillProjections(impact, tree);
-            }
 
             return impact;
-        }
-
-        private static ResearchProjectDef FindTypicalProject(List<ResearchProjectDef> tree, float medianCost)
-        {
-            ResearchProjectDef best = tree[0];
-            float bestDelta = Mathf.Abs(tree[0].baseCost - medianCost);
-            for (int i = 1; i < tree.Count; i++)
-            {
-                float delta = Mathf.Abs(tree[i].baseCost - medianCost);
-                if (delta < bestDelta)
-                {
-                    bestDelta = delta;
-                    best = tree[i];
-                }
-            }
-
-            return best;
         }
 
         private static void FillColony(ResearchInflationImpact impact, List<ResearchProjectDef> tree)
@@ -135,130 +88,123 @@ namespace ResearchInflation
             impact.multiplier = ResearchInflationHelper.GetMultiplier();
             impact.currentProject = Find.ResearchManager.GetProject(null);
 
-            Dictionary<string, EraImpact> eraMap = CreateEraMap();
-            float priciest = -1f;
-
             for (int i = 0; i < tree.Count; i++)
             {
                 ResearchProjectDef proj = tree[i];
-                if (proj.IsFinished)
+                if (ResearchInflationHelper.IsTrackedFinished(proj))
                 {
                     impact.finishedCount++;
-                    continue;
                 }
-
-                impact.remainingCount++;
-                float vanilla = proj.baseCost;
-                float inflated = proj.Cost;
-                impact.remainingVanilla += vanilla;
-                impact.remainingInflated += inflated;
-                impact.remainingWork += Mathf.Max(0f, inflated - proj.ProgressReal);
-
-                if (inflated > priciest)
+                else
                 {
-                    priciest = inflated;
-                    impact.priciestRemaining = proj;
-                    impact.priciestVanilla = vanilla;
-                    impact.priciestInflated = inflated;
+                    impact.remainingCount++;
                 }
-
-                AddEra(eraMap, proj, vanilla, inflated);
             }
 
-            impact.eras = EraList(eraMap);
-
-            if (impact.currentProject != null && impact.currentProject.baseCost > 0f && !impact.currentProject.IsFinished)
+            if (impact.currentProject != null && impact.currentProject.baseCost > 0f && !ResearchInflationHelper.IsTrackedFinished(impact.currentProject))
             {
                 impact.currentVanilla = impact.currentProject.baseCost;
                 impact.currentInflated = impact.currentProject.Cost;
                 impact.currentProgress = impact.currentProject.ProgressReal;
-                impact.nextFinishKnown = true;
-                impact.nextFinishName = impact.currentProject.LabelCap;
+            }
+        }
 
-                int countedAfter = impact.countedFinished;
-                ResearchInflationSettings colonySettings = ResearchInflationMod.settings;
-                if (colonySettings != null && impact.currentProject.baseCost >= colonySettings.ignoreThreshold)
+        private static void WalkTree(List<ResearchProjectDef> tree, int startCounted, HashSet<ResearchProjectDef> alreadyDone, Dictionary<string, EraImpact> eraMap, out float total, out int counted)
+        {
+            HashSet<ResearchProjectDef> inTree = new HashSet<ResearchProjectDef>(tree);
+            HashSet<ResearchProjectDef> done = alreadyDone != null ? new HashSet<ResearchProjectDef>(alreadyDone) : new HashSet<ResearchProjectDef>();
+            List<ResearchProjectDef> remaining = new List<ResearchProjectDef>();
+            for (int i = 0; i < tree.Count; i++)
+            {
+                if (!done.Contains(tree[i]))
                 {
-                    countedAfter++;
-                }
-
-                float nextMult = ResearchInflationHelper.GetMultiplierForCount(countedAfter);
-                for (int i = 0; i < tree.Count; i++)
-                {
-                    ResearchProjectDef proj = tree[i];
-                    if (proj.IsFinished || proj == impact.currentProject)
-                    {
-                        continue;
-                    }
-
-                    impact.othersListedNow += proj.Cost;
-                    impact.afterNextListed += ResearchInflationHelper.GetInflatedCost(proj, proj.baseCost, nextMult);
+                    remaining.Add(tree[i]);
                 }
             }
-            else
-            {
-                int countedAfter = impact.countedFinished + 1;
-                float nextMult = ResearchInflationHelper.GetMultiplierForCount(countedAfter);
-                for (int i = 0; i < tree.Count; i++)
-                {
-                    ResearchProjectDef proj = tree[i];
-                    if (proj.IsFinished)
-                    {
-                        continue;
-                    }
 
-                    impact.othersListedNow += proj.Cost;
-                    impact.afterNextListed += ResearchInflationHelper.GetInflatedCost(proj, proj.baseCost, nextMult);
+            counted = startCounted;
+            total = 0f;
+            float threshold = ResearchInflationMod.settings != null ? ResearchInflationMod.settings.ignoreThreshold : 0f;
+
+            while (remaining.Count > 0)
+            {
+                int pickIndex = FindNextIndex(remaining, done, inTree);
+                ResearchProjectDef proj = remaining[pickIndex];
+                remaining.RemoveAt(pickIndex);
+
+                float multiplier = ResearchInflationHelper.GetMultiplierForCount(counted);
+                float inflated = ResearchInflationHelper.GetInflatedCost(proj, proj.baseCost, multiplier);
+                total += inflated;
+                AddEra(eraMap, proj, proj.baseCost, inflated);
+
+                done.Add(proj);
+                if (proj.baseCost >= threshold)
+                {
+                    counted++;
                 }
             }
         }
 
-        private static void FillProjections(ResearchInflationImpact impact, List<ResearchProjectDef> tree)
+        private static int FindNextIndex(List<ResearchProjectDef> remaining, HashSet<ResearchProjectDef> done, HashSet<ResearchProjectDef> inTree)
         {
-            List<ResearchProjectDef> sorted = new List<ResearchProjectDef>(tree);
-            sorted.Sort((a, b) => a.baseCost.CompareTo(b.baseCost));
-
-            int[] samples = { 25, 50, 100 };
-            float threshold = ResearchInflationMod.settings != null ? ResearchInflationMod.settings.ignoreThreshold : 0f;
-
-            for (int s = 0; s < samples.Length; s++)
+            int best = 0;
+            bool bestReady = PrereqsMet(remaining[0], done, inTree);
+            for (int i = 1; i < remaining.Count; i++)
             {
-                int n = samples[s];
-                if (n >= sorted.Count)
+                ResearchProjectDef proj = remaining[i];
+                bool ready = PrereqsMet(proj, done, inTree);
+                if (BetterPick(proj, ready, remaining[best], bestReady))
                 {
-                    n = sorted.Count - 1;
+                    best = i;
+                    bestReady = ready;
                 }
+            }
 
-                if (n < 0)
+            return best;
+        }
+
+        private static bool BetterPick(ResearchProjectDef candidate, bool candidateReady, ResearchProjectDef current, bool currentReady)
+        {
+            if (candidateReady != currentReady)
+            {
+                return candidateReady;
+            }
+
+            if (candidate.baseCost != current.baseCost)
+            {
+                return candidate.baseCost < current.baseCost;
+            }
+
+            return string.CompareOrdinal(candidate.defName, current.defName) < 0;
+        }
+
+        private static bool PrereqsMet(ResearchProjectDef proj, HashSet<ResearchProjectDef> done, HashSet<ResearchProjectDef> inTree)
+        {
+            return ListMet(proj.prerequisites, done, inTree) && ListMet(proj.hiddenPrerequisites, done, inTree);
+        }
+
+        private static bool ListMet(List<ResearchProjectDef> list, HashSet<ResearchProjectDef> done, HashSet<ResearchProjectDef> inTree)
+        {
+            if (list == null)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                ResearchProjectDef prereq = list[i];
+                if (prereq == null || prereq.baseCost <= 0f || !inTree.Contains(prereq))
                 {
                     continue;
                 }
 
-                int counted = 0;
-                for (int i = 0; i < n; i++)
+                if (!done.Contains(prereq))
                 {
-                    if (sorted[i].baseCost >= threshold)
-                    {
-                        counted++;
-                    }
+                    return false;
                 }
-
-                Projection projection = new Projection
-                {
-                    finished = n,
-                    counted = counted,
-                    remaining = sorted.Count - n,
-                    multiplier = ResearchInflationHelper.GetMultiplierForCount(counted)
-                };
-
-                for (int i = n; i < sorted.Count; i++)
-                {
-                    projection.vanilla += sorted[i].baseCost;
-                    projection.inflated += ResearchInflationHelper.GetInflatedCost(sorted[i], sorted[i].baseCost, projection.multiplier);
-                }
-
-                impact.projections.Add(projection);
             }
+
+            return true;
         }
 
         private static Dictionary<string, EraImpact> CreateEraMap()
@@ -268,7 +214,7 @@ namespace ResearchInflation
             map.Add("Medieval", new EraImpact { label = "Medieval" });
             map.Add("Industrial", new EraImpact { label = "Industrial" });
             map.Add("Spacer", new EraImpact { label = "Spacer" });
-            map.Add("Ultra", new EraImpact { label = "Ultra / Archotech" });
+            map.Add("Ultra", new EraImpact { label = "Ultra" });
             return map;
         }
 
@@ -296,7 +242,7 @@ namespace ResearchInflation
             }
 
             EraImpact era = map[key];
-            era.remaining++;
+            era.techs++;
             era.vanilla += vanilla;
             era.inflated += inflated;
         }
@@ -308,7 +254,7 @@ namespace ResearchInflation
             for (int i = 0; i < keys.Length; i++)
             {
                 EraImpact era = map[keys[i]];
-                if (era.remaining > 0)
+                if (era.techs > 0)
                 {
                     list.Add(era);
                 }

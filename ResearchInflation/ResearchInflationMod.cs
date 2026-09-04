@@ -17,16 +17,29 @@ namespace ResearchInflation
         private static readonly Color ExtraHigh = new Color(0.95f, 0.48f, 0.36f);
         private static readonly Color BarBg = new Color(0.12f, 0.12f, 0.12f);
         private static readonly Color BarFill = new Color(0.42f, 0.68f, 0.42f);
-        private const float SectionTitleHeight = 48f;
 
         private string bufferThreshold;
+        private string bufferRate;
+        private string bufferCap;
         private string bufferNeo;
         private string bufferMed;
         private string bufferInd;
         private string bufferSpa;
         private string bufferUlt;
-        private Vector2 scrollPosition = Vector2.zero;
-        private float scrollHeight = 0f;
+
+        private bool impactInitialized;
+        private ResearchInflationImpact cachedImpact;
+        private float lastRate;
+        private float lastCap;
+        private float lastThreshold;
+        private bool lastEraToggle;
+        private EraCostMode lastEraMode;
+        private float lastNeo;
+        private float lastMed;
+        private float lastInd;
+        private float lastSpa;
+        private float lastUlt;
+        private int lastFinishedCount = -1;
 
         public ResearchInflationMod(ModContentPack content) : base(content)
         {
@@ -49,208 +62,189 @@ namespace ResearchInflation
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, this.scrollHeight > inRect.height ? this.scrollHeight : inRect.height);
-            Widgets.BeginScrollView(inRect, ref this.scrollPosition, viewRect);
+            const float gap = 6f;
+            const float buttonsH = 28f;
+            float settingsH = CompactSettingsHeight();
 
-            Listing_Standard listing = new Listing_Standard();
-            listing.maxOneColumn = true;
-            listing.Begin(viewRect);
+            Rect settingsRect = new Rect(inRect.x, inRect.y, inRect.width, settingsH);
+            DrawCompactSettings(settingsRect);
 
-            ResearchInflationImpact impact = ResearchInflationImpact.Build();
+            ResearchInflationImpact impact = GetOrBuildImpact();
 
-            DrawBoxed(listing, SettingsHeight(), box => DrawSettingsBox(box));
-            DrawBoxed(listing, ImpactHeight(impact), box => DrawImpactBox(box, impact));
-            DrawButtons(listing);
+            Rect buttonsRect = new Rect(inRect.x, inRect.yMax - buttonsH, inRect.width, buttonsH);
+            DrawButtons(buttonsRect);
 
-            this.scrollHeight = listing.CurHeight + 12f;
-            listing.End();
-            Widgets.EndScrollView();
+            Rect dashOut = new Rect(inRect.x, settingsRect.yMax + gap, inRect.width, buttonsRect.y - gap - settingsRect.yMax - gap);
+            if (dashOut.height > 0f)
+            {
+                Widgets.DrawMenuSection(dashOut);
+                DrawDashboard(dashOut.ContractedBy(6f), impact);
+            }
         }
 
-        private void DrawSettingsBox(Listing_Standard box)
+        private ResearchInflationImpact GetOrBuildImpact()
         {
-            DrawSectionTitle(box, "Settings", "Each finished tech makes leftover research more expensive. Progress already earned is kept.");
+            bool settingsChanged = !this.impactInitialized
+                || settings.inflationRate != this.lastRate
+                || settings.maxMultiplier != this.lastCap
+                || settings.ignoreThreshold != this.lastThreshold
+                || settings.useCustomEraCosts != this.lastEraToggle
+                || settings.eraCostMode != this.lastEraMode
+                || settings.valNeolithic != this.lastNeo
+                || settings.valMedieval != this.lastMed
+                || settings.valIndustrial != this.lastInd
+                || settings.valSpacer != this.lastSpa
+                || settings.valUltra != this.lastUlt;
 
-            settings.inflationRate = DrawSliderSetting(
-                box,
-                "Inflation per finished tech",
-                settings.inflationRate,
-                0f,
-                10f,
-                settings.inflationRate.ToString("0.00") + "%",
-                "Compounding increase applied to remaining projects each time a counted tech is finished.");
+            bool colonyChanged = ResearchInflationHelper.GetFinishedCount() != this.lastFinishedCount;
 
-            string capDisplay = settings.maxMultiplier <= 0f ? "No cap" : settings.maxMultiplier.ToString("0.0") + "x";
-            settings.maxMultiplier = DrawSliderSetting(
-                box,
-                "Maximum multiplier",
-                settings.maxMultiplier,
-                0f,
-                50f,
-                capDisplay,
-                "Stops late-game costs exploding on huge modded trees. 0 means unlimited.");
+            if (settingsChanged || colonyChanged)
+            {
+                ResearchInflationHelper.InvalidateCache();
+                ResearchInflationHelper.SnapFinishedProgress();
+                this.cachedImpact = ResearchInflationImpact.Build();
 
-            Rect thresh = box.GetRect(28f);
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(thresh.LeftPart(0.62f), "Ignore techs costing less than");
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.TextFieldNumeric(thresh.RightPart(0.38f).ContractedBy(0f, 2f), ref settings.ignoreThreshold, ref this.bufferThreshold, 0f, 10000f);
-            TooltipHandler.TipRegion(thresh, "Projects below this vanilla cost are not inflated and do not count toward the multiplier.");
+                this.lastRate = settings.inflationRate;
+                this.lastCap = settings.maxMultiplier;
+                this.lastThreshold = settings.ignoreThreshold;
+                this.lastEraToggle = settings.useCustomEraCosts;
+                this.lastEraMode = settings.eraCostMode;
+                this.lastNeo = settings.valNeolithic;
+                this.lastMed = settings.valMedieval;
+                this.lastInd = settings.valIndustrial;
+                this.lastSpa = settings.valSpacer;
+                this.lastUlt = settings.valUltra;
+                this.lastFinishedCount = ResearchInflationHelper.GetFinishedCount();
+                this.impactInitialized = true;
+            }
 
-            box.Gap(6f);
-            Rect divider = box.GetRect(6f);
-            Widgets.DrawLineHorizontal(divider.x, divider.y + 2f, divider.width);
+            return this.cachedImpact;
+        }
 
-            box.CheckboxLabeled("Add extra cost by era", ref settings.useCustomEraCosts);
+        private void DrawCompactSettings(Rect rect)
+        {
+            Widgets.DrawMenuSection(rect);
+            Rect inner = rect.ContractedBy(8f, 5f);
+            float rowH = 24f;
+            float y = inner.y;
+            float colGap = 10f;
+            float col = (inner.width - colGap) / 2f;
+
+            DrawNumeric(new Rect(inner.x, y, col, rowH), "Inflation %", ref settings.inflationRate, ref this.bufferRate, 0f, 10f, "Compounding increase per counted finished tech. Progress already earned is kept.");
+            DrawNumeric(new Rect(inner.x + col + colGap, y, col, rowH), "Max multiplier", ref settings.maxMultiplier, ref this.bufferCap, 0f, 50f, "Caps the inflation multiplier. 0 means unlimited.");
+            y += rowH + 3f;
+
+            DrawNumeric(new Rect(inner.x, y, col, rowH), "Ignore below", ref settings.ignoreThreshold, ref this.bufferThreshold, 0f, 10000f, "Projects below this vanilla cost are not inflated and do not count toward the multiplier.");
+            Widgets.CheckboxLabeled(new Rect(inner.x + col + colGap, y, col, rowH), "Era extras", ref settings.useCustomEraCosts);
+            y += rowH + 3f;
+
             if (!settings.useCustomEraCosts)
             {
                 return;
             }
 
-            if (box.RadioButton("Add to vanilla cost", settings.eraCostMode == EraCostMode.Additive, 0f, "Each era value is added to the project's vanilla cost before inflation."))
+            Rect modeRow = new Rect(inner.x, y, inner.width, rowH);
+            if (Widgets.RadioButtonLabeled(modeRow.LeftHalf(), "Add to vanilla", settings.eraCostMode == EraCostMode.Additive))
             {
                 settings.eraCostMode = EraCostMode.Additive;
             }
 
-            if (box.RadioButton("Replace vanilla cost", settings.eraCostMode == EraCostMode.Replace, 0f, "Each era value becomes the project's new base cost before inflation."))
+            if (Widgets.RadioButtonLabeled(modeRow.RightHalf(), "Replace vanilla", settings.eraCostMode == EraCostMode.Replace))
             {
                 settings.eraCostMode = EraCostMode.Replace;
             }
 
-            box.Gap(2f);
-            DrawEraPair(box, "Neolithic", ref settings.valNeolithic, ref this.bufferNeo, "Medieval", ref settings.valMedieval, ref this.bufferMed);
-            DrawEraPair(box, "Industrial", ref settings.valIndustrial, ref this.bufferInd, "Spacer", ref settings.valSpacer, ref this.bufferSpa);
-
-            Rect ultraRow = box.GetRect(26f);
-            float half = (ultraRow.width - 10f) / 2f;
-            DrawEraField(new Rect(ultraRow.x, ultraRow.y, half, ultraRow.height), "Ultra / Archotech", ref settings.valUltra, ref this.bufferUlt);
+            y += rowH + 3f;
+            float eraW = inner.width / 5f;
+            DrawEraField(new Rect(inner.x, y, eraW - 4f, rowH), "Neo", ref settings.valNeolithic, ref this.bufferNeo);
+            DrawEraField(new Rect(inner.x + eraW, y, eraW - 4f, rowH), "Med", ref settings.valMedieval, ref this.bufferMed);
+            DrawEraField(new Rect(inner.x + eraW * 2f, y, eraW - 4f, rowH), "Ind", ref settings.valIndustrial, ref this.bufferInd);
+            DrawEraField(new Rect(inner.x + eraW * 3f, y, eraW - 4f, rowH), "Spa", ref settings.valSpacer, ref this.bufferSpa);
+            DrawEraField(new Rect(inner.x + eraW * 4f, y, eraW - 4f, rowH), "Ultra", ref settings.valUltra, ref this.bufferUlt);
         }
 
-        private static void DrawImpactBox(Listing_Standard box, ResearchInflationImpact impact)
+        private static void DrawNumeric(Rect rect, string label, ref float value, ref string buffer, float min, float max, string tip)
+        {
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(rect.LeftPart(0.42f), label);
+            Text.Anchor = TextAnchor.UpperLeft;
+            Widgets.TextFieldNumeric(rect.RightPart(0.58f).ContractedBy(0f, 1f), ref value, ref buffer, min, max);
+            TooltipHandler.TipRegion(rect, tip);
+        }
+
+        private static void DrawDashboard(Rect rect, ResearchInflationImpact impact)
         {
             if (!impact.defsReady)
             {
-                DrawSectionTitle(box, "Impact", "Research defs have not loaded yet.");
+                Widgets.Label(rect, "Impact on your tree will appear once research defs have loaded.");
                 return;
             }
 
+            float extra = impact.completeTotal - impact.treeVanilla;
+            float extraPct = impact.treeVanilla > 0f ? extra / impact.treeVanilla : 0f;
+            float cardsH = 52f;
+            DrawTopBoxes(
+                new Rect(rect.x, rect.y, rect.width, cardsH),
+                Pts(impact.completeTotal),
+                "Final total",
+                ExtraColor(extraPct),
+                "Research points to finish every standard tech, compounding as each counted project completes. Order: cheapest currently available, prerequisites first. This number follows your settings, not colony progress.",
+                Pct(extra, impact.treeVanilla),
+                "Extra vs vanilla",
+                ExtraColor(extraPct),
+                Pts(impact.treeVanilla) + " vanilla  →  " + Pts(impact.completeTotal) + " inflated.",
+                impact.endMultiplier.ToString("0.00") + "x",
+                "Finish multiplier",
+                TitleColor,
+                "Multiplier after the last counted tech (" + impact.endCounted + " counted finishes).");
+
+            Listing_Standard listing = new Listing_Standard();
+            listing.maxOneColumn = true;
+            listing.verticalSpacing = 2f;
+            listing.Begin(new Rect(rect.x, rect.y + cardsH + 6f, rect.width, rect.height - cardsH - 6f));
+
+            DrawKV(listing, "Research tree", impact.treeCount + " projects  ·  " + Pts(impact.treeVanilla) + " vanilla");
             if (impact.inColony)
             {
-                DrawSectionTitle(box, "This colony", impact.treeCount + " techs in the loaded tree · typical project " + Pts(impact.medianCost) + " points");
-                DrawColonyImpact(box, impact);
+                DrawKV(listing, "Progress", impact.finishedCount + " finished  ·  " + impact.remainingCount + " remaining  ·  now " + impact.multiplier.ToString("0.00") + "x");
+                if (impact.currentProject != null && impact.currentInflated > 0f)
+                {
+                    DrawKV(listing, "Current project", impact.currentProject.LabelCap + "  ·  vanilla " + Pts(impact.currentVanilla));
+                    DrawProgressBar(listing, impact.currentProgress, impact.currentInflated);
+                }
             }
             else
             {
-                DrawSectionTitle(box, "Loaded tree", impact.treeCount + " techs totaling " + Pts(impact.treeVanilla) + " points · typical project " + Pts(impact.medianCost));
-                DrawMenuImpact(box, impact);
-            }
-        }
-
-        private static void DrawColonyImpact(Listing_Standard box, ResearchInflationImpact impact)
-        {
-            float extra = impact.remainingInflated - impact.remainingVanilla;
-            float extraPct = impact.remainingVanilla > 0f ? extra / impact.remainingVanilla : 0f;
-
-            Rect cards = box.GetRect(58f);
-            float gap = 6f;
-            float cardW = (cards.width - gap * 2f) / 3f;
-            DrawStatCard(new Rect(cards.x, cards.y, cardW, cards.height), impact.multiplier.ToString("0.00") + "x", "Multiplier", TitleColor, "Counted finished techs: " + impact.countedFinished);
-            DrawStatCard(new Rect(cards.x + cardW + gap, cards.y, cardW, cards.height), Pct(extra, impact.remainingVanilla), "Extra cost", ExtraColor(extraPct), "Remaining tree is " + Signed(extra) + " points above vanilla.");
-            DrawStatCard(new Rect(cards.x + (cardW + gap) * 2f, cards.y, cardW, cards.height), Pts(impact.remainingWork), "Work left", Color.white, "Research points still needed on unfinished projects.");
-            box.Gap(6f);
-
-            DrawKV(box, "Progress", impact.finishedCount + " finished  ·  " + impact.remainingCount + " remaining");
-            if (impact.remainingCount <= 0)
-            {
-                DrawKV(box, "Remaining tree", "Nothing left to inflate");
-                return;
-            }
-
-            DrawKV(box, "Remaining tree", Pts(impact.remainingVanilla) + "  →  " + Pts(impact.remainingInflated), ExtraColor(extraPct));
-
-            if (impact.currentProject != null && impact.currentInflated > 0f)
-            {
-                DrawKV(box, "Current project", impact.currentProject.LabelCap + "  ·  vanilla " + Pts(impact.currentVanilla));
-                DrawProgressBar(box, impact.currentProgress, impact.currentInflated);
-            }
-
-            if (impact.priciestRemaining != null)
-            {
-                DrawKV(box, "Most expensive left", impact.priciestRemaining.LabelCap + "  " + Pts(impact.priciestVanilla) + " → " + Pts(impact.priciestInflated));
-            }
-
-            float delta = impact.afterNextListed - impact.othersListedNow;
-            if (impact.nextFinishKnown)
-            {
-                DrawKV(box, "If " + impact.nextFinishName + " finishes", Pts(impact.othersListedNow) + "  →  " + Pts(impact.afterNextListed) + "  (" + Signed(delta) + ")", ExtraColor(impact.othersListedNow > 0f ? delta / impact.othersListedNow : 0f));
-            }
-            else
-            {
-                DrawKV(box, "Next counted finish", Pts(impact.othersListedNow) + "  →  " + Pts(impact.afterNextListed) + "  (" + Signed(delta) + ")", ExtraColor(impact.othersListedNow > 0f ? delta / impact.othersListedNow : 0f), "Approximate: that tech is not removed from the remaining total.");
+                DrawKV(listing, "No colony loaded", "Final total assumes you start from zero and finish the whole tree.");
             }
 
             if (impact.eras.Count > 0)
             {
-                box.Gap(4f);
-                DrawTableHeader(box, "Era", "Techs", "Vanilla", "Now", "Extra");
+                listing.Gap(6f);
+                DrawTableHeader(listing, "Era", "Techs", "Vanilla", "Final", "Extra");
                 for (int i = 0; i < impact.eras.Count; i++)
                 {
                     EraImpact era = impact.eras[i];
-                    DrawTableRow(box, era.label, era.remaining.ToString(), Pts(era.vanilla), Pts(era.inflated), Signed(era.inflated - era.vanilla), i % 2 == 0);
+                    DrawTableRow(listing, era.label, era.techs.ToString(), Pts(era.vanilla), Pts(era.inflated), Signed(era.inflated - era.vanilla), i % 2 == 0);
                 }
+
+                DrawTableTotal(listing, "Total", impact.treeCount.ToString(), Pts(impact.treeVanilla), Pts(impact.completeTotal), Signed(extra));
             }
+
+            listing.End();
         }
 
-        private static void DrawMenuImpact(Listing_Standard box, ResearchInflationImpact impact)
+        private void DrawButtons(Rect row)
         {
-            box.Gap(2f);
-            Rect note = box.GetRect(18f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = MutedColor;
-            Widgets.Label(note, "No colony loaded. Projections assume the cheapest techs are finished first.");
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
-
-            if (impact.typicalProject != null)
-            {
-                float cost25 = ResearchInflationHelper.GetInflatedCost(impact.typicalProject, impact.typicalProject.baseCost, ResearchInflationHelper.GetMultiplierForCount(25));
-                float cost50 = ResearchInflationHelper.GetInflatedCost(impact.typicalProject, impact.typicalProject.baseCost, ResearchInflationHelper.GetMultiplierForCount(50));
-                float cost100 = ResearchInflationHelper.GetInflatedCost(impact.typicalProject, impact.typicalProject.baseCost, ResearchInflationHelper.GetMultiplierForCount(100));
-                DrawKV(box, "Typical project", impact.typicalProject.LabelCap + "  ·  " + Pts(impact.typicalProject.baseCost) + " vanilla");
-                DrawKV(box, "After 25 / 50 / 100 counted", Pts(cost25) + "   ·   " + Pts(cost50) + "   ·   " + Pts(cost100));
-            }
-
-            if (impact.projections.Count > 0)
-            {
-                box.Gap(4f);
-                DrawTableHeader(box, "If cheapest…", "Counted", "Mult", "Remaining", "Extra");
-                for (int i = 0; i < impact.projections.Count; i++)
-                {
-                    ResearchInflationImpact.Projection p = impact.projections[i];
-                    DrawTableRow(
-                        box,
-                        p.finished + " done",
-                        p.counted.ToString(),
-                        p.multiplier.ToString("0.00") + "x",
-                        Pts(p.inflated),
-                        Pct(p.inflated - p.vanilla, p.vanilla),
-                        i % 2 == 0,
-                        Pts(p.vanilla) + " vanilla → " + Pts(p.inflated) + " inflated for " + p.remaining + " remaining techs.");
-                }
-            }
-        }
-
-        private void DrawButtons(Listing_Standard listing)
-        {
-            listing.Gap(4f);
-            Rect row = listing.GetRect(32f);
-            float gap = 8f;
-            Rect left = new Rect(row.x, row.y, (row.width - gap) / 2f, row.height);
-            Rect right = new Rect(left.xMax + gap, row.y, left.width, row.height);
+            float split = 8f;
+            Rect left = new Rect(row.x, row.y, (row.width - split) / 2f, row.height);
+            Rect right = new Rect(left.xMax + split, row.y, left.width, row.height);
 
             if (Widgets.ButtonText(left, "Reset to defaults"))
             {
                 settings.ResetToDefaults();
+                this.bufferRate = null;
+                this.bufferCap = null;
                 this.bufferThreshold = null;
                 this.bufferNeo = null;
                 this.bufferMed = null;
@@ -259,65 +253,28 @@ namespace ResearchInflation
                 this.bufferUlt = null;
                 ResearchInflationHelper.InvalidateCache();
                 ResearchInflationHelper.SnapFinishedProgress();
+                this.impactInitialized = false;
             }
 
             if (Widgets.ButtonText(right, "Recalculate now"))
             {
                 ResearchInflationHelper.InvalidateCache();
                 ResearchInflationHelper.SnapFinishedProgress();
+                this.impactInitialized = false;
             }
         }
 
-        private static void DrawBoxed(Listing_Standard listing, float height, Action<Listing_Standard> content)
+        private static void DrawTopBoxes(
+            Rect rect,
+            string aValue, string aCaption, Color aColor, string aTip,
+            string bValue, string bCaption, Color bColor, string bTip,
+            string cValue, string cCaption, Color cColor, string cTip)
         {
-            Listing_Standard box = listing.BeginSection(height, 8f, 8f);
-            box.maxOneColumn = true;
-            box.verticalSpacing = 4f;
-            content(box);
-            listing.EndSection(box);
-            listing.Gap(10f);
-        }
-
-        private static void DrawSectionTitle(Listing_Standard listing, string title, string subtitle)
-        {
-            Rect rect = listing.GetRect(SectionTitleHeight);
-            Widgets.DrawLightHighlight(rect);
-
-            Rect titleRect = new Rect(rect.x + 6f, rect.y + 3f, rect.width - 12f, 22f);
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = TitleColor;
-            Widgets.Label(titleRect, title);
-
-            Text.Font = GameFont.Tiny;
-            Rect subtitleRect = new Rect(rect.x + 6f, titleRect.yMax, rect.width - 12f, Text.LineHeight + 2f);
-            GUI.color = MutedColor;
-            Widgets.Label(subtitleRect, subtitle);
-
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = Color.white;
-            listing.Gap(6f);
-        }
-
-        private static float DrawSliderSetting(Listing_Standard listing, string label, float value, float min, float max, string display, string tip)
-        {
-            Rect row = listing.GetRect(22f);
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(row.LeftPart(0.68f), label);
-            GUI.color = TitleColor;
-            Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(row.RightPart(0.32f), display);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            TooltipHandler.TipRegion(row, tip);
-            value = listing.Slider(value, min, max);
-            if (max <= 10f)
-            {
-                return (float)Math.Round(value, 2);
-            }
-
-            return (float)Math.Round(value, 1);
+            float gap = 6f;
+            float cardW = (rect.width - gap * 2f) / 3f;
+            DrawStatCard(new Rect(rect.x, rect.y, cardW, rect.height), aValue, aCaption, aColor, aTip);
+            DrawStatCard(new Rect(rect.x + cardW + gap, rect.y, cardW, rect.height), bValue, bCaption, bColor, bTip);
+            DrawStatCard(new Rect(rect.x + (cardW + gap) * 2f, rect.y, cardW, rect.height), cValue, cCaption, cColor, cTip);
         }
 
         private static void DrawStatCard(Rect rect, string value, string caption, Color valueColor, string tip)
@@ -345,9 +302,9 @@ namespace ResearchInflation
             Widgets.DrawHighlightIfMouseover(rect);
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = MutedColor;
-            Widgets.Label(rect.LeftPart(0.42f), key);
+            Widgets.Label(rect.LeftPart(0.28f), key);
             GUI.color = valueColor ?? Color.white;
-            Widgets.Label(rect.RightPart(0.58f), value);
+            Widgets.Label(rect.RightPart(0.72f), value);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             if (!tip.NullOrEmpty())
@@ -376,58 +333,53 @@ namespace ResearchInflation
 
         private static void DrawTableHeader(Listing_Standard listing, string a, string b, string c, string d, string e)
         {
-            Rect rect = listing.GetRect(20f);
+            Rect rect = listing.GetRect(24f);
             Widgets.DrawTitleBG(rect);
-            Text.Font = GameFont.Tiny;
             GUI.color = MutedColor;
-            DrawFive(rect, a, b, c, d, e, false);
+            DrawFive(rect, a, b, c, d, e);
             GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+        }
+
+        private static void DrawTableTotal(Listing_Standard listing, string a, string b, string c, string d, string e)
+        {
+            Rect rect = listing.GetRect(24f);
+            Widgets.DrawTitleBG(rect);
+            GUI.color = TitleColor;
+            DrawFive(rect, a, b, c, d, e);
+            GUI.color = Color.white;
         }
 
         private static void DrawTableRow(Listing_Standard listing, string a, string b, string c, string d, string e, bool stripe, string tip = null)
         {
-            Rect rect = listing.GetRect(20f);
+            Rect rect = listing.GetRect(24f);
             if (stripe)
             {
                 Widgets.DrawLightHighlight(rect);
             }
 
             Widgets.DrawHighlightIfMouseover(rect);
-            Text.Font = GameFont.Tiny;
-            DrawFive(rect, a, b, c, d, e, true);
-            Text.Font = GameFont.Small;
+            DrawFive(rect, a, b, c, d, e);
             if (!tip.NullOrEmpty())
             {
                 TooltipHandler.TipRegion(rect, tip);
             }
         }
 
-        private static void DrawFive(Rect rect, string a, string b, string c, string d, string e, bool rightAlignValues)
+        private static void DrawFive(Rect rect, string a, string b, string c, string d, string e)
         {
-            rect = rect.ContractedBy(4f, 0f);
-            float[] weights = { 0.28f, 0.14f, 0.20f, 0.20f, 0.18f };
+            rect = rect.ContractedBy(8f, 0f);
+            float[] widths = { 0.24f, 0.12f, 0.22f, 0.22f, 0.20f };
             float x = rect.x;
             string[] cells = { a, b, c, d, e };
             for (int i = 0; i < 5; i++)
             {
-                Rect cell = new Rect(x, rect.y, rect.width * weights[i], rect.height);
-                Text.Anchor = (rightAlignValues && i > 0) ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
-                Widgets.Label(cell, cells[i]);
+                Rect cell = new Rect(x, rect.y, rect.width * widths[i], rect.height);
+                Text.Anchor = i == 0 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+                Widgets.Label(cell.ContractedBy(6f, 0f), cells[i]);
                 x += cell.width;
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
-        }
-
-        private static void DrawEraPair(Listing_Standard listing, string leftLabel, ref float leftValue, ref string leftBuffer, string rightLabel, ref float rightValue, ref string rightBuffer)
-        {
-            Rect row = listing.GetRect(26f);
-            float gap = 10f;
-            Rect left = new Rect(row.x, row.y, (row.width - gap) / 2f, row.height);
-            DrawEraField(left, leftLabel, ref leftValue, ref leftBuffer);
-            Rect right = new Rect(left.xMax + gap, row.y, left.width, row.height);
-            DrawEraField(right, rightLabel, ref rightValue, ref rightBuffer);
         }
 
         private static void DrawEraField(Rect rect, string label, ref float value, ref string buffer)
@@ -438,57 +390,15 @@ namespace ResearchInflation
             Widgets.TextFieldNumeric(rect.RightPart(0.45f), ref value, ref buffer, 0f, 1000000f);
         }
 
-        private float SettingsHeight()
+        private float CompactSettingsHeight()
         {
-            float height = SectionTitleHeight + 6f + 48f + 48f + 28f + 6f + 6f + 28f + 8f;
+            float height = 10f + 24f + 3f + 24f + 4f;
             if (settings.useCustomEraCosts)
             {
-                height += 28f * 2f + 4f + 26f * 3f;
+                height += 24f + 3f + 24f;
             }
 
             return height;
-        }
-
-        private static float ImpactHeight(ResearchInflationImpact impact)
-        {
-            float height = SectionTitleHeight + 6f;
-            if (!impact.defsReady)
-            {
-                return height + 24f;
-            }
-
-            if (!impact.inColony)
-            {
-                height += 18f + 4f;
-                height += 22f * 2f;
-                height += 4f + 20f + impact.projections.Count * 20f;
-                return height + 12f;
-            }
-
-            height += 58f + 6f;
-            height += 22f * 2f;
-            if (impact.remainingCount <= 0)
-            {
-                return height + 12f;
-            }
-
-            if (impact.currentProject != null && impact.currentInflated > 0f)
-            {
-                height += 22f + 18f;
-            }
-
-            if (impact.priciestRemaining != null)
-            {
-                height += 22f;
-            }
-
-            height += 22f;
-            if (impact.eras.Count > 0)
-            {
-                height += 4f + 20f + impact.eras.Count * 20f;
-            }
-
-            return height + 12f;
         }
 
         private static string Pts(float value)

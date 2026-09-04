@@ -118,6 +118,11 @@ namespace ResearchInflation
             return cachedFinishedCount;
         }
 
+        public static bool IsTrackedFinished(ResearchProjectDef proj)
+        {
+            return proj != null && finishedProjects.Contains(proj);
+        }
+
         public static float GetInflatedCost(ResearchProjectDef proj, float originalCost)
         {
             return GetInflatedCost(proj, originalCost, GetMultiplier());
@@ -161,9 +166,9 @@ namespace ResearchInflation
             }
 
             float inflated = baseVal * multiplier;
-            if (inflated <= 0f)
+            if (inflated < 0f)
             {
-                return originalCost;
+                inflated = 0f;
             }
 
             return Mathf.Ceil(inflated);

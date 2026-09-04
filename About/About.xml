@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+    <name>Research: Inflation</name>
+    <author>Cruesoe</author>
+    <packageId>cruesoe.research.inflation</packageId>
+    <modVersion IgnoreIfNoMatchingField="True">260904</modVersion>
+    <description>Adds a compounding 1% inflation to the cost of all remaining technologies every time a project is completed.</description>
+    <supportedVersions>
+        <li>1.6</li>
+    </supportedVersions>
+    <modDependencies>
+        <li>
+            <packageId>brrainz.harmony</packageId>
+            <displayName>Harmony</displayName>
+            <steamWorkshopUrl>steamcommunity.com/sharedfiles/filedetails/?id=2009463077</steamWorkshopUrl>
+        </li>
+    </modDependencies>
+    <loadAfter>
+        <li>OskarPotocki.VFE.Tribals</li>
+        <li>ferny.progressionattire</li>
+        <li>ferny.progressioncore</li>
+        <li>ferny.progressionstorage</li>
+        <li>ferny.progressionproduction</li>
+        <li>ferny.ProgressionGravship</li>
+        <li>ferny.generallymoreresearch</li>
+    </loadAfter>
+</ModMetaData>
