@@ -3,6 +3,7 @@ using Verse;
 
 namespace ResearchInflation
 {
+    // Saved by class name; do not rename
     public class GameComponent_ResearchInflation : GameComponent
     {
         public int progressModelVersion;
@@ -24,22 +25,21 @@ namespace ResearchInflation
             Scribe_Values.Look(ref this.progressModelVersion, "progressModelVersion", 0);
             Scribe_Collections.Look(ref this.finishedProjects, "finishedProjects", LookMode.Def);
 
-            if (this.finishedProjects == null)
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                this.finishedProjects = new List<ResearchProjectDef>();
-            }
-
-            this.finishedProjects.RemoveAll(proj => proj == null);
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && this.progressModelVersion >= ResearchInflationHelper.CurrentSaveVersion)
-            {
-                ResearchInflationHelper.LoadFinishedProjects(this.finishedProjects);
+                this.finishedProjects ??= new List<ResearchProjectDef>();
+                this.finishedProjects.RemoveAll(proj => proj == null);
+                if (this.progressModelVersion >= ResearchInflationHelper.CurrentSaveVersion)
+                {
+                    ResearchInflationHelper.LoadFinishedProjects(this.finishedProjects);
+                }
             }
         }
 
+        // Setup runs earlier, from the Game.FinalizeInit prefix; this catches cost changes made while the game was closed
         public override void FinalizeInit()
         {
-            ResearchInflationHelper.InitializeForGame(this);
+            ResearchInflationHelper.ReconcileProgress();
         }
     }
 }
