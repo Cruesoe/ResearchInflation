@@ -21,5 +21,5 @@ Made for long, multi-generational colonies: early techs stay cheap, but by the l
 Settings changes apply straight away, including to a game in progress.
 
 [h2]Compatibility[/h2]
-Works with modded research trees, including Vanilla Factions Expanded - Tribals and the Progression mods. Anomaly knowledge projects are left alone. Requires Harmony.
+Works with modded research trees, including Vanilla Factions Expanded - Tribals and the Progression mods. Anomaly knowledge projects are left alone.
 Safe to add to an existing save. In-progress research keeps its percentage when the mod is added.
