@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  
-  <PropertyGroup>
-    <RootNamespace>ResearchInflation</RootNamespace>
-    <AssemblyName>ResearchInflation</AssemblyName>
-    <UnityModules>CoreModule;IMGUIModule;InputLegacyModule;TextRenderingModule</UnityModules>
-  </PropertyGroup>
-</Project>

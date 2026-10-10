@@ -1,52 +1,25 @@
-[h2]Research Inflation — Major Update[/h2]
-Research now actually costs what the research tab shows. Progress can no longer run past the total.
+[b]Every research project you finish makes the rest of the tree more expensive.[/b]
 
-[h3]Fixes[/h3]
+Made for long, multi-generational colonies: early techs stay cheap, but by the late eras each project needs a dedicated, well-equipped research team.
+
+[h2]Features[/h2]
 [list]
-[*] Inflated cost is the real completion cost, not a display trick. The bar, the tooltip, and finishing a project all use the same number.
-[*] Tech-level penalties are kept, so researching above your era no longer makes progress exceed the listed cost.
-[*] Finished projects stay finished when inflation changes.
-[*] Costs update as soon as a tech completes, instead of lagging for a second or two.
+[*]Each finished project raises the cost of every remaining project by a set percentage, compounding: cost × (1 + rate) ^ finished projects.
+[*]Points you have already earned are kept. Only the remaining work costs more, and finished research stays finished.
+[*]The research tab shows the real, inflated cost, and that is the cost a project finishes at.
+[*]Techprints for an unlocked project still give half the remaining (inflated) cost.
+[*]The settings page shows what the whole tree will cost from scratch, by era, and your colony's current multiplier.
 [/list]
 
-[h3]How inflation works now[/h3]
+[h2]Settings[/h2]
 [list]
-[*] Points you have already earned are kept. Only the remaining work gets more expensive.
-[*] Existing saves are converted once so in-progress projects keep the percent you already had.
+[*][b]Inflation per finished project[/b]: how much each finish raises remaining costs, from 0% to 10%. Default 1%.
+[*][b]Maximum multiplier[/b]: stops costs rising past a multiple of their starting cost. Default no cap.
+[*][b]Ignore projects cheaper than[/b]: cheap projects below this vanilla cost are not inflated and do not raise the multiplier. Default 0.
+[*][b]Era costs[/b]: leave vanilla costs alone, add a fixed amount per era, or replace each era's costs with your own. Default vanilla.
 [/list]
+Settings changes apply straight away, including to a game in progress.
 
-[h3]Settings[/h3]
-[list]
-[*] Live colony dashboard: remaining tree cost, work left, current project, and what the next finish does to the rest of the tree.
-[*] Breakdown by era, plus loaded-modlist projections if no colony is open.
-[*] Optional maximum multiplier so huge modded trees do not explode late game (0 = no cap).
-[*] Era extras are still there: add to vanilla cost or replace it, per tech level.
-[/list]
-
-Anomaly knowledge projects are still left alone. Harmony is still required.
-
-
-[h1]Research Inflation[/h1]
-Are you tired of your colonists mastering spaceflight in just three years? Do you want a playthrough that feels like a true, multi-generational epic where every technological leap is a hard-fought victory?
-
-[b]Research Inflation[/b] dynamically overhauls RimWorld’s pacing by pitting your colony's scientific output against the relentless force of compounding inflation. 
-
-[h2]How It Works[/h2]
-Instead of static price tags, this mod actively tracks your technological progress. [b]Every time you finish a research project, the point cost of every remaining technology in the game increases.[/b]
-
-[list]
-[*][b]The Math:[/b] The game uses a compounding formula: [i]Base Era Cost * (1.01 ^ Completed Projects)[/i].
-[*][b]The Result:[/b] Your first Neolithic tech will only take a few days for a single researcher. By the time you reach the Ultra era, technologies will cost thousands of points, requiring a dedicated, highly skilled, and fully equipped laboratory team to complete.
-[/list]
-
-[h2](In-Game Settings[/h2]
-You are entirely in control of your saga's pacing. Using the Mod Settings menu, you can adjust everything on the fly—no game restart required:
-[list]
-[*][b]Inflation Rate:[/b] Adjust the per-tech compound penalty anywhere from 1.0% to 5.0% (Defaults to 1.0%).
-[*][b]Era Baselines:[/b] Set distinct starting costs for Neolithic, Medieval, Industrial, Spacer, and Ultra technologies. (Or disable this feature entirely.
-[/list]
-
-[h2]Compatibility & Performance[/h2]
-[list]
-[*][b]100% Save Safe:[/b] This mod does [i]not[/i] inject custom data into your save file. You can safely add or remove it at any point in your playthrough without breaking your game. 
-[/list]
+[h2]Compatibility[/h2]
+Works with modded research trees, including Vanilla Factions Expanded - Tribals and the Progression mods. Anomaly knowledge projects are left alone. Requires Harmony.
+Safe to add to an existing save. In-progress research keeps its percentage when the mod is added.
