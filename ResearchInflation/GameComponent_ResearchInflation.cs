@@ -36,10 +36,5 @@ namespace ResearchInflation
                 ResearchInflationHelper.LoadFinishedProjects(this.finishedProjects);
             }
         }
-
-        public override void FinalizeInit()
-        {
-            ResearchInflationHelper.InitializeForGame(this);
-        }
     }
 }
