@@ -27,6 +27,14 @@ foreach ($key in $keyed) { if (-not $used.Contains($key)) { $failures.Add("Unuse
 
 if ($sourceText -match 'GameFont\.Tiny') { $failures.Add('GameFont.Tiny is used') }
 
+# Both game versions: an assembly for each and both listed in supportedVersions
+foreach ($version in '1.6', '1.7') {
+    if (-not (Test-Path (Join-Path $root "$version\Assemblies\ResearchInflation.dll"))) { $failures.Add("$version\Assemblies\ResearchInflation.dll is missing") }
+}
+[xml]$about = [IO.File]::ReadAllText((Join-Path $root 'About\About.xml'))
+$versions = @($about.ModMetaData.supportedVersions.li)
+foreach ($version in '1.6', '1.7') { if ($versions -notcontains $version) { $failures.Add("About.xml supportedVersions does not list $version") } }
+
 $preview = Join-Path $root 'About\Preview.png'
 if ((Get-Item $preview).Length -ge 1000000) { $failures.Add('About\Preview.png is 1,000,000 bytes or more') }
 

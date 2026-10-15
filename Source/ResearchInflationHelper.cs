@@ -181,41 +181,17 @@ namespace ResearchInflation
             }
         }
 
-        // Finishes untracked projects whose progress reached a lowered cost, and keeps the rest below their cost
+        // Keeps untracked projects just below a lowered cost; they finish through vanilla's research path when next researched
         public static void ReconcileProgress()
         {
-            ResearchManager? manager = Current.Game?.researchManager;
             Dictionary<ResearchProjectDef, float>? progress = GetProgressDict();
-            if (!ready || manager == null || progress == null)
+            if (!ready || progress == null)
             {
                 return;
             }
 
             SnapFinishedProgress();
             List<ResearchProjectDef> all = DefDatabase<ResearchProjectDef>.AllDefsListForReading;
-
-            // Each finish raises the multiplier, so rescan after every one
-            ResearchProjectDef? next;
-            do
-            {
-                next = null;
-                for (int i = 0; i < all.Count; i++)
-                {
-                    ResearchProjectDef proj = all[i];
-                    if (proj.baseCost > 0f && !finishedProjects.Contains(proj) && proj.IsFinished && proj.PrerequisitesCompleted)
-                    {
-                        next = proj;
-                        break;
-                    }
-                }
-
-                if (next != null)
-                {
-                    manager.FinishProject(next, doCompletionDialog: false, researcher: null, doCompletionLetter: false);
-                }
-            }
-            while (next != null);
-
             for (int i = 0; i < all.Count; i++)
             {
                 ResearchProjectDef proj = all[i];

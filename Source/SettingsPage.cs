@@ -25,7 +25,8 @@ namespace ResearchInflation
 
         private string? thresholdBuffer;
         private readonly string?[] eraBuffers = new string?[5];
-        private object? lastState;
+        private readonly float[] state = new float[10];
+        private readonly float[] lastState = new float[10];
         private ResearchInflationImpact? impact;
 
         public void Draw(Rect inRect)
@@ -52,7 +53,7 @@ namespace ResearchInflation
             Rect mode = LabeledRow(list, "ResearchInflation_EraMode".Translate(), "ResearchInflation_EraModeTip".Translate());
             if (Widgets.ButtonText(mode.LeftPartPixels(ResetWidth), ModeLabel(settings.eraCostMode)))
             {
-                Find.WindowStack.Add(new FloatMenu(ModeOptions(settings)));
+                Find.WindowStack.Add(new FloatMenu(this.ModeOptions(settings)));
             }
 
             this.DrawEraValues(list.GetRect(RowHeight), settings);
@@ -87,7 +88,7 @@ namespace ResearchInflation
             this.EraField(new Rect(row.x + width * 4f, row.y, width - Gap, row.height), TechLevel.Ultra, ref settings.valUltra, 4, settings.eraCostMode);
         }
 
-        // Inert and greyed out while era costs are off
+        // Inert and grayed out while era costs are off
         private void EraField(Rect rect, TechLevel level, ref float value, int index, EraCostMode mode)
         {
             string label = level.ToStringHuman().CapitalizeFirst();
@@ -117,16 +118,38 @@ namespace ResearchInflation
         // Rebuilds the projection and resets finished progress whenever a setting or the colony's finished count changes
         private void RefreshImpact(ResearchInflationSettings settings)
         {
-            object state = (settings.inflationRate, settings.maxMultiplier, settings.ignoreThreshold, settings.eraCostMode, settings.valNeolithic, settings.valMedieval, settings.valIndustrial, settings.valSpacer, settings.valUltra, ResearchInflationHelper.GetFinishedCount());
-            if (this.impact != null && state.Equals(this.lastState))
+            this.state[0] = settings.inflationRate;
+            this.state[1] = settings.maxMultiplier;
+            this.state[2] = settings.ignoreThreshold;
+            this.state[3] = (float)settings.eraCostMode;
+            this.state[4] = settings.valNeolithic;
+            this.state[5] = settings.valMedieval;
+            this.state[6] = settings.valIndustrial;
+            this.state[7] = settings.valSpacer;
+            this.state[8] = settings.valUltra;
+            this.state[9] = ResearchInflationHelper.GetFinishedCount();
+            if (this.impact != null && SameState(this.state, this.lastState))
             {
                 return;
             }
 
-            this.lastState = state;
+            this.state.CopyTo(this.lastState, 0);
             ResearchInflationHelper.InvalidateCache();
             ResearchInflationHelper.SnapFinishedProgress();
             this.impact = DefDatabase<ResearchProjectDef>.DefCount > 0 ? ResearchInflationImpact.Build() : null;
+        }
+
+        private static bool SameState(float[] a, float[] b)
+        {
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] != b[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void DrawImpact(Listing_Standard list, ResearchInflationImpact impact)
@@ -180,15 +203,36 @@ namespace ResearchInflation
             return result;
         }
 
-        private static List<FloatMenuOption> ModeOptions(ResearchInflationSettings settings)
+        private List<FloatMenuOption> ModeOptions(ResearchInflationSettings settings)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             foreach (EraCostMode mode in new[] { EraCostMode.Off, EraCostMode.Additive, EraCostMode.Replace })
             {
-                options.Add(new FloatMenuOption(ModeLabel(mode), () => settings.eraCostMode = mode));
+                options.Add(new FloatMenuOption(ModeLabel(mode), () => this.SetMode(settings, mode)));
             }
 
             return options;
+        }
+
+        // Replace raises era values below its minimum so the fields show the cost in use
+        private void SetMode(ResearchInflationSettings settings, EraCostMode mode)
+        {
+            settings.eraCostMode = mode;
+            if (mode != EraCostMode.Replace)
+            {
+                return;
+            }
+
+            float min = ResearchInflationSettings.MinReplaceCost;
+            settings.valNeolithic = Mathf.Max(settings.valNeolithic, min);
+            settings.valMedieval = Mathf.Max(settings.valMedieval, min);
+            settings.valIndustrial = Mathf.Max(settings.valIndustrial, min);
+            settings.valSpacer = Mathf.Max(settings.valSpacer, min);
+            settings.valUltra = Mathf.Max(settings.valUltra, min);
+            for (int i = 0; i < this.eraBuffers.Length; i++)
+            {
+                this.eraBuffers[i] = null;
+            }
         }
 
         private static string ModeLabel(EraCostMode mode)
