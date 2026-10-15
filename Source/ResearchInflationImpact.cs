@@ -105,7 +105,7 @@ namespace ResearchInflation
                 waiting[proj] = prereqs.Count;
                 foreach (ResearchProjectDef prereq in prereqs)
                 {
-                    if (!dependents.TryGetValue(prereq, out List<ResearchProjectDef> list))
+                    if (!dependents.TryGetValue(prereq, out List<ResearchProjectDef>? list))
                     {
                         list = new List<ResearchProjectDef>();
                         dependents[prereq] = list;
@@ -124,7 +124,7 @@ namespace ResearchInflation
             while (remaining.Count > 0)
             {
                 // A prerequisite loop leaves nothing available; take the cheapest remaining project to break it
-                ResearchProjectDef proj = available.Count > 0 ? available.Min : remaining.Min;
+                ResearchProjectDef proj = (available.Count > 0 ? available.Min : remaining.Min)!;
                 available.Remove(proj);
                 remaining.Remove(proj);
 
@@ -140,7 +140,7 @@ namespace ResearchInflation
                     counted++;
                 }
 
-                if (dependents.TryGetValue(proj, out List<ResearchProjectDef> unlocked))
+                if (dependents.TryGetValue(proj, out List<ResearchProjectDef>? unlocked))
                 {
                     foreach (ResearchProjectDef dependent in unlocked)
                     {
@@ -191,8 +191,18 @@ namespace ResearchInflation
         {
             public static readonly CheapestFirst Instance = new CheapestFirst();
 
-            public int Compare(ResearchProjectDef x, ResearchProjectDef y)
+            public int Compare(ResearchProjectDef? x, ResearchProjectDef? y)
             {
+                if (ReferenceEquals(x, y))
+                {
+                    return 0;
+                }
+
+                if (x == null || y == null)
+                {
+                    return x == null ? -1 : 1;
+                }
+
                 int byCost = x.baseCost.CompareTo(y.baseCost);
                 return byCost != 0 ? byCost : string.CompareOrdinal(x.defName, y.defName);
             }
