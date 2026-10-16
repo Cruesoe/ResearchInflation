@@ -16,13 +16,4 @@
       <steamWorkshopUrl>steamcommunity.com/sharedfiles/filedetails/?id=2009463077</steamWorkshopUrl>
     </li>
   </modDependencies>
-  <loadAfter>
-    <li>OskarPotocki.VFE.Tribals</li>
-    <li>ferny.progressionattire</li>
-    <li>ferny.progressioncore</li>
-    <li>ferny.progressionstorage</li>
-    <li>ferny.progressionproduction</li>
-    <li>ferny.ProgressionGravship</li>
-    <li>ferny.generallymoreresearch</li>
-  </loadAfter>
 </ModMetaData>
