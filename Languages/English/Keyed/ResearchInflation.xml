@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ResearchInflation_SettingsCategory>Research: Inflation</ResearchInflation_SettingsCategory>
+
+  <ResearchInflation_Rate>Inflation per finished project</ResearchInflation_Rate>
+  <ResearchInflation_RateTip>Every finished project raises the cost of all remaining research by this much, compounding. Points already earned are kept.</ResearchInflation_RateTip>
+  <ResearchInflation_Cap>Maximum multiplier</ResearchInflation_Cap>
+  <ResearchInflation_CapTip>Costs never rise above this multiple of their starting cost. Drag fully left for no cap.</ResearchInflation_CapTip>
+  <ResearchInflation_CapNone>No cap</ResearchInflation_CapNone>
+  <ResearchInflation_Threshold>Ignore projects cheaper than</ResearchInflation_Threshold>
+  <ResearchInflation_ThresholdTip>Projects with a vanilla cost below this are not inflated and do not raise the multiplier.</ResearchInflation_ThresholdTip>
+
+  <ResearchInflation_EraMode>Era costs</ResearchInflation_EraMode>
+  <ResearchInflation_EraModeTip>Optionally change each era's starting cost before inflation applies.</ResearchInflation_EraModeTip>
+  <ResearchInflation_EraMode_Off>Vanilla</ResearchInflation_EraMode_Off>
+  <ResearchInflation_EraMode_Additive>Add to vanilla</ResearchInflation_EraMode_Additive>
+  <ResearchInflation_EraMode_Replace>Replace vanilla</ResearchInflation_EraMode_Replace>
+  <ResearchInflation_EraOffTip>Choose "Add to vanilla" or "Replace vanilla" under Era costs to edit this.</ResearchInflation_EraOffTip>
+  <ResearchInflation_EraAddTip>Added to the vanilla cost of every {0} project.</ResearchInflation_EraAddTip>
+  <ResearchInflation_EraReplaceTip>Starting cost of every {0} project, in place of its vanilla cost. Minimum 1.</ResearchInflation_EraReplaceTip>
+
+  <ResearchInflation_TreeHeading>Whole tree, researched from scratch ({0} projects)</ResearchInflation_TreeHeading>
+  <ResearchInflation_ColEra>Era</ResearchInflation_ColEra>
+  <ResearchInflation_ColProjects>Projects</ResearchInflation_ColProjects>
+  <ResearchInflation_ColVanilla>Vanilla</ResearchInflation_ColVanilla>
+  <ResearchInflation_ColInflated>Inflated</ResearchInflation_ColInflated>
+  <ResearchInflation_ColExtra>Extra</ResearchInflation_ColExtra>
+  <ResearchInflation_Total>Total</ResearchInflation_Total>
+  <ResearchInflation_EndMultiplier>Costs reach {0}x by the last project.</ResearchInflation_EndMultiplier>
+
+  <ResearchInflation_NoColony>Load a colony to see its progress here.</ResearchInflation_NoColony>
+  <ResearchInflation_Colony>This colony: {0} finished, {1} left, costs now {2}x.</ResearchInflation_Colony>
+  <ResearchInflation_Current>Current: {0}</ResearchInflation_Current>
+
+  <ResearchInflation_Reset>Reset to defaults</ResearchInflation_Reset>
+</LanguageData>
