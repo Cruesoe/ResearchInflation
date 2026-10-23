@@ -3,7 +3,7 @@
   <name>Research: Inflation</name>
   <author>Cruesoe</author>
   <packageId>cruesoe.research.inflation</packageId>
-  <modVersion IgnoreIfNoMatchingField="True">260904</modVersion>
+  <modVersion IgnoreIfNoMatchingField="True">261023</modVersion>
   <description>Every research project you finish makes the rest of the tree more expensive. The inflation rate, a cost cap and era starting costs are set in mod settings.</description>
   <supportedVersions>
     <li>1.6</li>
